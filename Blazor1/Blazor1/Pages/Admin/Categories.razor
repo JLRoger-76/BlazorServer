@@ -1,0 +1,87 @@
+﻿@page "/Categories"
+@layout AdminLayout
+@using Blazor1.Data;
+@using Blazor1.Services;
+
+<h3>Categories</h3>
+@if (categories == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Nom</th>
+                <th scope="col">Id Parent</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td scope="row"></td>
+                <td data-label="Nom">
+                    <input id="Nom" @bind="cat.Name" />
+                </td>
+                <td data-label="Id parent">
+                    <input type="number" min="1" id="parentId" @bind="cat.ParentId" />
+                </td>
+                <td>
+                    @if (@edition == false)
+                    {
+                        <button type="button" class="button button-success" @onclick="@(() => Insert(cat))"> <span class="oi oi-plus" aria-hidden="true"></span></button>
+                    }
+                    <button type="button" class="button button-danger" @onclick="@OnCancel"><span class="oi oi-action-undo" aria-hidden="true"></span></button>
+                </td>
+            </tr>
+
+            @foreach (Category category in categories)
+            {
+                <tr>
+                    <td scope="row" data-label="Id">@category.CategoryId</td>
+                    <td data-label="Nom">@category.Name</td>
+                    <td data-label="Id parent">@category.ParentId</td>
+                    <td>
+                        <button type="button" class="button button-success" @onclick="@(() => OnEdit(category))"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                        <button type="button" class="button button-danger" @onclick="@(() => Delete(category))"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Inject] CategoryService CategoryService { get; set; }
+    protected List<Category> categories = new();
+    private bool edition = false;
+    private Category cat = new Category();
+
+    protected override async Task OnInitializedAsync()
+    {
+        categories = await CategoryService.GetCategoriesAsync();
+    }
+    void OnEdit(Category category)
+    {
+        edition = true;
+        cat = category;
+    }
+    void OnCancel()
+    {
+        edition = false;
+        cat = new Category();
+    }
+    async Task Insert(Category category)
+    {
+        await CategoryService.InsertCategoryAsync(category);
+        await OnInitializedAsync();
+    }
+
+    async Task Delete(Category category)
+    {
+        await CategoryService.DeleteCategoryAsync(category);
+        await OnInitializedAsync();
+    }
+}

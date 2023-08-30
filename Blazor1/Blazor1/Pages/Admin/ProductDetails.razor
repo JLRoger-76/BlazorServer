@@ -1,0 +1,168 @@
+﻿@page "/Product/{Id:int}"
+@layout AdminLayout
+@using Blazor1.Data
+@using Blazor1.Services;
+@using System.IO
+@using Microsoft.AspNetCore.Hosting;
+
+@inject IWebHostEnvironment env
+@inject NavigationManager NavigationManager
+
+@if (Id == 0)
+{
+    <h3>Ajouter un Produit</h3>
+}
+else
+{
+    <h3>Modifier un Produit</h3>
+}
+@if (categories == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <div class="container">
+        <form @onsubmit="OnSubmit">
+            <div class="row">
+                <div class="col-25">
+                    <label for="Name">Nom</label>
+                </div>
+                <div class="col-75">
+                    <input type="text" form="Name" @bind="@product.Name" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-25">
+                    <label for="Price">Prix de Vente</label>
+                </div>
+                <div class="col-75">
+                    <input type="text" form="Price" @bind="@product.Price" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-25">
+                    <label for="Detail">Detail</label>
+                </div>
+                <div class="col-75">
+                    <textarea id="Detail" rows="4" @bind="@product.Detail"></textarea>
+                    <span asp-validation-for="Detail" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-25">
+                    <label for="categories">Categorie</label><br />
+                </div>
+                <div class="col-75">
+                    <select id="categories" class="selectform" @onchange="@OnSelectCategory">
+                        @((MarkupString)selectCategories(product.CategoryId))
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-25">
+                    <label>Image</label>
+                </div>
+                <div class="col-75">
+                    <img src="/pictures/@product.Image" style="width:100px; object-fit:cover;" alt="Aucune"><span>@product.Image</span>
+                    <InputFile OnChange="OnInputFileChange" multiple />
+                </div>
+            </div>
+
+            <br>
+            <div>
+                @if (Id == 0)
+                {<button type="submit" class="button button-success" @onclick="@(() => OnSubmit())">Ajouter le Produit</button>}
+                else
+                {<button type="submit" class="button button-success" @onclick="@(() => OnSubmit())">Enregistrer le Produit</button>}
+            </div>
+        </form>
+    </div>
+
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [Inject] StockProductService StockProductService { get; set; }
+    [Inject] CategoryService CategoryService { get; set; }
+    [Inject] ProductService ProductService { get; set; }
+
+    List<Category> categories = new List<Category>();
+    private Product product = new Product();
+    protected override async Task OnInitializedAsync()
+    {
+        categories = await CategoryService.GetCategoriesAsync();
+        if (Id > 0)
+        {
+            product = await ProductService.GetProductAsync(Id);
+        }
+        else
+        {
+            product.CategoryId = 1;
+        }
+    }
+    string selectCategories(int selected, int parentId = 0, string submark = "")
+    {
+        string html = "";
+        foreach (var cat in categories)
+        {
+            if (cat.ParentId == parentId)
+            {
+                var hasChild = false;
+                foreach (var child in categories)
+                {
+                    if (child.ParentId == cat.CategoryId) { hasChild = true; }
+                }
+                html += "'<option value=" + @cat.CategoryId;
+                if (hasChild) { html += " disabled "; }
+                if (selected == cat.CategoryId) { html += " selected "; }
+                html += ">" + submark + cat.Name + "</option>";
+
+                html += selectCategories(selected, cat.CategoryId, submark + "--");
+            }
+        }
+        return html;
+    }
+
+    private void OnSelectCategory(ChangeEventArgs e)
+    {
+        product.CategoryId = int.Parse(e.Value.ToString());
+    }
+
+    IReadOnlyList<IBrowserFile> selectedFiles;
+    private void OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        selectedFiles = e.GetMultipleFiles();
+
+        this.StateHasChanged();
+    }
+    private async void OnSubmit()
+    {
+        if (selectedFiles != null)
+        {
+            foreach (var file in selectedFiles)
+            {
+                product.Image = file.Name;
+                Stream stream = file.OpenReadStream();
+                var path = $"{env.WebRootPath}\\pictures\\{file.Name}";
+                FileStream fs = File.Create(path);
+                await stream.CopyToAsync(fs);
+                stream.Close();
+                fs.Close();
+            }
+        }
+        @if (Id == 0)
+        {
+            var response = await ProductService.InsertProductAsync(product);
+            StockProduct stockProduct = new StockProduct { };
+            stockProduct.StockId = 1;
+            stockProduct.ProductId = int.Parse(response.ToString());
+            stockProduct.StockQuantity = 0;
+            await StockProductService.InsertStockProductAsync(stockProduct);
+        }
+        else { await ProductService.UpdateProductAsync(product); }
+        NavigationManager.NavigateTo("Products");
+    }
+
+}

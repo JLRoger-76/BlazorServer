@@ -1,0 +1,18 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage storage
+
+<div class="page">
+    <NavMenu />
+    @Body
+</div>
+
+@code{
+    string message;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await storage.GetAsync<string>("User");
+        message = result.Success ? result.Value : "";
+        message = "Bienvenu "+ message;
+    }
+}

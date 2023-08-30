@@ -1,0 +1,137 @@
+﻿@using Blazor1.Data;
+@inject NavigationManager NavigationManager
+@using System.Text.Json;
+
+
+<CascadingValue Value=@SelectedProduct>
+    <CascadingValue Value=@Transact>
+        <SelectedProductAdmin />
+    </CascadingValue>
+</CascadingValue>
+@if (supplierProducts == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    @if (startPage > displayedPages)
+    {
+        <button type="button" @onclick="@(OnPrevPage)" class="button button-info">Prev</button>
+    }
+    @for (int i = startPage; i <= Math.Min(displayedPages + startPage - 1, (productsCount + Parameters.ProductsByPage - 1) / Parameters.ProductsByPage); i++)
+    {
+        var pageNumber = i;
+        <button type="button" @onclick="@(() => OnPage(pageNumber))" class="button button-info">@i</button>
+    }
+    @if ((productsCount + Parameters.ProductsByPage - 1) / Parameters.ProductsByPage >= startPage + displayedPages)
+    {
+        <button type="button" @onclick="@(OnNextPage)" class="button button-info">Next</button>
+    }
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Produit</th>
+                <th scope="col">Image</th>
+                <th scope="col">Prix</th>
+                <th>
+                    <a class="button button-success" href="AdminProduits/Fournisseur/@Parameters.SupplierId">
+                        <span class="oi oi-plus" aria-hidden="true"></span>
+                    </a>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (SupplierProduct supplierProduct in displayedSupplierProducts)
+            {
+                <tr>
+                    <td scope="row" data-label="Produit">@supplierProduct.Product.Name</td>
+                    <td data-label="Image"><img src="/pictures/@supplierProduct.Product.Image" style="width:100px; object-fit:cover;" alt="Card image cap"></td>
+
+                    <td data-label="Prix"><input style="width:5rem !important;" @onchange="e => OnPriceChange(supplierProduct.SupplierProductId, e)" value=@supplierProduct.Price></td>
+                    <td>
+                        <button type="button" class="button button-danger" @onclick="@(() => OnDelete(supplierProduct.SupplierProductId))"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                        <button type="button" class="button button-success" @onclick="@(() => OnCart(supplierProduct))"> <span class="oi oi-cart" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter]
+    public Parameter Parameters { get; set; }
+    [CascadingParameter]
+    public string Transact { get; set; }
+    [Inject] SupplierService SupplierService { get; set; }
+    [Inject] SupplierProductService SupplierProductService { get; set; }
+    [Inject] StockProductService StockProductService { get; set; }
+
+    protected List<SupplierProduct> supplierProducts;
+    protected List<Supplier> suppliers;
+    protected List<SupplierProduct> displayedSupplierProducts = new();
+    protected SupplierProduct supplierProduct;
+    protected StockProduct SelectedProduct;
+
+    //pagination
+    protected int startPage = 1;      //1ere page du paginateur
+    protected int displayedPages = 10;//total pages du paginateur
+
+    protected int productsCount = 0;
+    protected int quantity;
+    protected override async Task OnParametersSetAsync()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync();
+        supplierProducts = await SupplierProductService.GetSupplierProductAsync(Parameters.SupplierId);
+        if (Parameters.Sort == 1)
+        {
+            supplierProducts = supplierProducts.OrderBy(s => s.Product.Name).ToList();
+        }
+        else
+        {
+            supplierProducts = supplierProducts.OrderByDescending(s => s.Product.Name).ToList();
+        }
+        productsCount = supplierProducts.Count();
+        OnPage(Parameters.CurrentPage);
+    }
+    protected void OnPage(int i)
+    {
+        Parameters.CurrentPage = i;
+        displayedSupplierProducts = supplierProducts
+            .Skip((Parameters.CurrentPage - 1) * Parameters.ProductsByPage)
+            .Take(Parameters.ProductsByPage).ToList();
+    }
+    protected void OnPrevPage()
+    {
+        startPage -= displayedPages;
+    }
+    protected void OnNextPage()
+    {
+        startPage += displayedPages;
+    }
+
+    protected async Task OnSelectSupplier(ChangeEventArgs e)
+    {
+        supplierProducts = await SupplierProductService.GetSupplierProductAsync(Parameters.SupplierId);
+    }
+    protected async Task OnPriceChange(int id, ChangeEventArgs e)
+    {
+        supplierProduct = supplierProducts.Find(e => e.SupplierProductId == id);
+        supplierProduct.Price = decimal.Parse(e.Value.ToString());
+        await SupplierProductService.UpdateSupplierProductAsync(supplierProduct);
+    }
+    protected async Task OnDelete(int id)
+    {
+        supplierProduct = supplierProducts.Single(s => s.SupplierProductId == id);
+        supplierProducts.Remove(supplierProduct);
+        await SupplierProductService.DeleteSupplierProductAsync(supplierProduct);
+    }
+    protected async Task OnCart(SupplierProduct supplierProduct)
+    {
+        StockProduct product = await StockProductService.GetStockProduct2Async("1&" + supplierProduct.ProductId);
+        product.Product.Price = supplierProduct.Price;
+        SelectedProduct = product;
+    }
+}
+
+}

@@ -1,0 +1,84 @@
+﻿@page "/Stocks"
+@layout AdminLayout
+@using Blazor1.Data;
+@using Blazor1.Services;
+
+<h3>Stocks</h3>
+@if (stocks == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Nom</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td></td>
+                <td scope="row" data-label="Nom">
+                    <input id="Nom" @bind="sto.StockName" />
+                </td>
+
+                <td>
+                    @if (@edition == false)
+                    {
+                        <button type="button" class="button button-success" @onclick="@(() => Insert(sto))"> <span class="oi oi-plus" aria-hidden="true"></span></button>
+                    }
+                    <button type="button" class="button button-danger" @onclick="@OnCancel"><span class="oi oi-action-undo" aria-hidden="true"></span></button>
+                </td>
+            </tr>
+
+            @foreach (Stock stock in stocks)
+            {
+                <tr>
+                    <td scope="row" data-label="Id">@stock.StockId</td>
+                    <td data-label="Nom">@stock.StockName</td>
+                    <td>
+                        <button type="button" class="button button-success" @onclick="@(() => OnEdit(stock))"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                        <button type="button" class="button button-danger" @onclick="@(() => Delete(stock))"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Inject] StockService StockService { get; set; }
+    protected List<Stock> stocks = new();
+    private bool edition = false;
+    private Stock sto = new Stock();
+
+    protected override async Task OnInitializedAsync()
+    {
+        stocks = await StockService.GetStocksAsync();
+    }
+    void OnEdit(Stock stock)
+    {
+        edition = true;
+        sto = stock;
+    }
+    void OnCancel()
+    {
+        edition = false;
+        sto = new Stock();
+    }
+    async Task Insert(Stock stock)
+    {
+        await StockService.InsertStockAsync(stock);
+        await OnInitializedAsync();
+    }
+
+    async Task Delete(Stock stock)
+    {
+        await StockService.DeleteStockAsync(stock);
+        await OnInitializedAsync();
+    }
+}
+

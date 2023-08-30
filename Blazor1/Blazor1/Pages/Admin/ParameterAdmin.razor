@@ -1,0 +1,144 @@
+﻿@page "/AdminProduits/{Transact}/{SId}"
+@layout UserLayout
+@using Blazor1.Data;
+<h3>@Transact Stock @SId</h3>
+@if (categories == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+<div class="form-line">
+    @if (Transact == "Distribution")
+    {
+        <select id="stock" @onchange="@OnSelectStock">
+            @foreach (var stock in stocks)
+            {
+                <option value="@stock.StockId">@stock.StockName</option>
+            }
+        </select>
+    }
+    @if (Transact == "Achat")
+    {
+        <select id="stock" @onchange="@OnSelectSupplier">
+            @foreach (var supplier in suppliers)
+            {
+                <option value="@supplier.SupplierId">@supplier.Name</option>
+            }
+        </select>
+    }
+    <select id="categories" @onchange="@OnSelectCategory">
+        @((MarkupString)selectCategories(parameters.CategoryId))
+    </select>
+    <select id="productsByPage" @onchange="@OnSelectByPage">
+        @for (int i = 1; i < 4; i++)
+        {
+            if (i == parameters.ProductsByPage)
+            {
+                <option value=@i selected>@i par page</option>
+            }
+            else
+            {
+                <option value=@i>@i par page</option>
+            }
+        }
+    </select>
+    <select id="sort" @onchange="@OnSort">
+        <option value="1" selected="@(parameters.Sort == 1)">Nom croissant</option>
+        <option value="2" selected="@(parameters.Sort == 2)">Nom décroissant</option>
+    </select>
+    <input id="string" @bind="parameters.SearchTerm" placeholder="Recherche" />
+    <button id="search" @onclick="@OnSearch"><i class="oi oi-magnifying-glass" aria-hidden="true"></i></button>
+</div>
+    <CascadingValue Value=@parameters>
+        <CascadingValue Value=@Transact>
+            @if (Transact == "Achat")
+            {
+                <ProductsListSupplier />
+            }
+            else //Distribution/Fournisseur (ajout produit)
+            {
+                <ProductsListAdmin />
+            }
+
+        </CascadingValue>
+    </CascadingValue>
+}
+
+@code {
+    [Parameter]
+    public string Transact { get; set; }
+    [Parameter]
+    public string SId { get; set; }
+
+    [Inject] CategoryService CategoryService { get; set; }
+    protected List<Category> categories = new();
+    [Inject] StockService StockService { get; set; }
+    protected List<Stock> stocks = new();
+    [Inject] SupplierService SupplierService { get; set; }
+    protected List<Supplier> suppliers = new();
+
+
+    protected Parameter parameters = new(2, 3, 1, 1, "", 1, 1);
+
+    protected string selection;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        categories = await CategoryService.GetCategoriesAsync();
+        stocks = await StockService.GetStocksAsync();
+    }
+
+    protected string selectCategories(int selected, int parentId = 0, string submark = "")
+    {
+        string html = "";
+        foreach (var cat in categories)
+        {
+            if (cat.ParentId == parentId)
+            {
+                var hasChild = false;
+                foreach (var child in categories)
+                {
+                    if (child.ParentId == cat.CategoryId) { hasChild = true; }
+                }
+                html += "'<option value=" + @cat.CategoryId;
+                if (hasChild) { html += " disabled "; }
+                if (selected == cat.CategoryId) { html += " selected "; }
+                html += ">" + submark + cat.Name + "</option>";
+
+                html += selectCategories(selected, cat.CategoryId, submark + "--");
+            }
+        }
+        return html;
+    }
+
+    protected void OnSelectStock(ChangeEventArgs e)
+    {
+        parameters.StockId = int.Parse(e.Value.ToString());
+    }
+
+    protected void OnSelectCategory(ChangeEventArgs e)
+    {
+        parameters.CategoryId = int.Parse(e.Value.ToString());
+        parameters.CurrentPage = 1;
+    }
+
+    protected void OnSelectSupplier(ChangeEventArgs e)
+    {
+        parameters.SupplierId = int.Parse(e.Value.ToString());
+    }
+
+    protected void OnSelectByPage(ChangeEventArgs e)
+    {
+        parameters.ProductsByPage = int.Parse(e.Value.ToString());
+    }
+
+    protected void OnSort(ChangeEventArgs e)
+    {
+        parameters.Sort = int.Parse(e.Value.ToString());
+    }
+
+    protected void OnSearch()
+    {
+    }
+}

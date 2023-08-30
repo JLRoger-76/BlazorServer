@@ -1,0 +1,49 @@
+﻿@page "/Sales"
+@layout AdminLayout
+@using Blazor1.Data;
+@inject NavigationManager NavigationManager
+
+<h3>Réception Achat</h3>
+
+@if (sales == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Prix</th>
+                <th scope="col">Date</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sale in sales)
+            {
+                <tr>
+                    <td scope="row" data-label="Id">@sale.SaleId</td>
+                    <td data-label="Prix">@sale.SalePrice</td>
+                    <td data-label="Date">@sale.SaleDate</td>
+                    <td>
+                        <button type="button" class="button button-success" @onclick="@(() => OnEdit(sale.SaleId))"><span class="oi oi-magnifying-glass" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@code {
+    [Inject] SaleService SaleService { get; set; }
+    protected List<Sale> sales = new();
+    protected override async Task OnInitializedAsync()
+    {
+        sales = await SaleService.GetSalesAsync();
+    }
+    void OnEdit(int id)
+    {
+        NavigationManager.NavigateTo("SaleDetail/" + id);
+    }
+}

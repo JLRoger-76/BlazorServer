@@ -1,0 +1,21 @@
+﻿<div class="topnav @responsive" id="myTopnav">
+    <a href="/" class="active">Blazor Store</a>
+    <a href="ClientProduits/Vente/1">Vente</a>
+    <a style="float:right" href="Connection"><span class="oi oi-person" aria-hidden="true"></span> Connection</a>
+    <a href="" class="icon" @onclick="@OnClick">
+        <i class="oi oi-menu"></i>
+    </a>
+</div>
+
+
+
+@code {
+    protected string responsive = "";
+    void OnClick()
+    {
+        if (responsive == "")
+        { responsive = "responsive"; }
+        else
+        { responsive = ""; }
+    }
+}

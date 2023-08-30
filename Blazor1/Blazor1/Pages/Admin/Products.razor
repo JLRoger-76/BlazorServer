@@ -1,0 +1,73 @@
+﻿@page "/Products"
+@layout AdminLayout
+@using Blazor1.Data;
+@using Blazor1.Services;
+@inject NavigationManager NavigationManager
+
+<h3>Produits</h3>
+<button type="button" class="button button-success" @onclick="@(OnCreate)"> <span class="oi oi-plus" aria-hidden="true"></span></button>
+@if (products == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Nom</th>
+                <th scope="col">Prix</th>
+                <th scope="col">Image</th>
+                <th scope="col">Categorie</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (Product product in products)
+            {
+                <tr>
+                    <td scope="row" data-label="Id">@product.ProductId</td>
+                    <td data-label="Nom">@product.Name</td>
+                    <td data-label="Prix">@product.Price</td>
+                    <td data-label="Image"><img src="/pictures/@product.Image" style="width:100px; object-fit:cover;" alt="Card image cap"></td>
+                    <td data-label="Catégorie">@product.Category.Name</td>
+                    <td>
+                        <button type="button" class="button button-success" @onclick="@(() => OnEdit(product.ProductId))"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                        <button type="button" class="button button-danger" @onclick="@(() => Delete(product))"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Inject] ProductService ProductService { get; set; }
+    protected List<Product> products = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductService.GetProductsAsync();
+    }
+    void OnCreate()
+    {
+        NavigationManager.NavigateTo("Product/0");
+    }
+    void OnEdit(int id)
+    {
+        NavigationManager.NavigateTo("Product/" + id);
+    }
+    async Task Insert(Product product)
+    {
+        await ProductService.InsertProductAsync(product);
+        await OnInitializedAsync();
+    }
+
+    async Task Delete(Product product)
+    {
+        await ProductService.DeleteProductAsync(product);
+        await OnInitializedAsync();
+    }
+}
+

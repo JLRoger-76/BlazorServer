@@ -1,0 +1,97 @@
+﻿@layout AdminLayout
+@using Blazor1.Data;
+@using Blazor1.Services;
+<h3>SaleProducts</h3>
+
+<h3>Reception Commande: @Id</h3>
+
+@if (saleProducts == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Produit</th>
+                <th scope="col">Quantité</th>
+                <th scope="col">Prix Unitaire</th>
+                <th scope="col">Prix</th>
+                <th scope="col">Recu</th>
+                <th scope="col">Reception</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (SaleProduct saleProduct in saleProducts)
+            {
+                prix = saleProduct.Quantity * saleProduct.UnitPrice;
+                total += prix;
+                <tr>
+                    <td scope="row" data-label="Produit">@saleProduct.Product.Name</td>
+                    <td data-label="Quantité">@saleProduct.Quantity</td>
+                    <td data-label="Prix Unitaire">@saleProduct.UnitPrice €</td>
+                    <td data-label="Prix">@prix €</td>
+                    <td data-label="Recu">@saleProduct.InStock</td>
+                    <td data-label="Reception">
+                        <input style="width:5rem !important;" type="number"
+                               @onchange="e => OnStockChange(saleProduct.ProductId, e)"
+                               value=@saleProduct.ToStock min="0" max=@(saleProduct.Quantity-saleProduct.InStock)>
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tr>
+            <td></td>
+            <td></td>
+            <td data-label="Total">TOTAL</td>
+            <td data-label="Total">@total €</td>
+            <td></td>
+            <td>
+                <button type="button" class="button button-success" @onclick="@(() => OnStockSale())">Enregistrer</button>
+            </td>
+        </tr>
+    </table>
+}
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [Inject] SaleProductService SaleProductService { get; set; }
+    [Inject] StockProductService StockProductService { get; set; }
+
+    protected List<SaleProduct> saleProducts;
+    protected StockProduct stockProduct;
+    public decimal total = 0;
+    public decimal prix;
+
+    protected override async Task OnInitializedAsync()
+    {
+        saleProducts = await SaleProductService.GetSaleProductAsync(Id);
+    }
+    protected void OnStockChange(int pid, ChangeEventArgs e)
+    {
+        saleProducts.Find(e => e.ProductId == pid).ToStock = int.Parse(e.Value.ToString());
+        total = 0;
+    }
+    protected async void OnStockSale()
+    {
+        foreach (SaleProduct saleProduct in saleProducts)
+        {
+            // maj stock du produit recu
+            int pid = saleProduct.ProductId;
+            stockProduct = await StockProductService.GetStockProduct2Async("1&" + pid);
+            stockProduct.StockQuantity += saleProduct.ToStock;
+            await StockProductService.UpdateStockProductAsync(stockProduct);
+            
+            //maj la commande
+            saleProduct.InStock += saleProduct.ToStock;
+            saleProduct.ToStock = 0;
+            await SaleProductService.UpdateSaleProductAsync(saleProduct);
+        }
+        total = 0;
+        StateHasChanged();
+    }
+}
+
+}

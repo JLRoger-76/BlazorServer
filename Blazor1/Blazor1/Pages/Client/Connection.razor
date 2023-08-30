@@ -1,0 +1,91 @@
+﻿@page "/Connection"
+@using Blazor1.Data;
+@using Blazor1.Services;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@using System.Security.Cryptography;
+@using System.Text;
+@inject ProtectedSessionStorage storage
+@inject NavigationManager NavigationManager
+<h3>Connection</h3>
+<div class="container">
+    <div class="row">
+        <div class="col-25">
+            <label for="Name">Pseudo</label>
+        </div>
+        <div class="col-75">
+            <input type="text" form="Name" @bind="@user.Pseudo" placeholder="Your name.." />
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-25">
+            <label for="Password">Mot de Pasee</label>
+        </div>
+        <div class="col-75">
+            <input type="text" form="Password" @bind="@user.Password" placeholder="Your Password.." />
+        </div>
+    </div>
+     <div class="row">
+         <div class="col-25">
+             <label>Localisation</label>
+         </div>
+         <div class="col-75">
+             <select class="selectform" id="role" @bind="user.Role">
+                 @foreach (var stock in stocks)
+                 {
+                     <option value="@stock.StockId">@stock.StockName</option>
+                 }
+             </select>
+         </div>
+     </div>
+    <br>
+    <div>
+        <button type="button" class="button button-success" @onclick="@(connectUser)"><span class="oi oi-person" aria-hidden="true">Se connecter</span></button>
+        <button type="button" class="button button-success" @onclick="@(createUser)"><span class="oi oi-person" aria-hidden="true">S'inscrire</span></button>
+    </div>
+</div>
+
+@code {
+    protected User[] users;
+    protected User user = new User();
+    private List<Stock> stocks = new List<Stock>();
+    [Inject] StockService StockService { get; set; }
+    [Inject] UserService UserService { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        users = await UserService.GetUsersAsync();
+        stocks = await StockService.GetStocksAsync();
+    }
+    private async void connectUser()
+    {
+        // Create a SHA256
+        // ComputeHash - returns byte array
+        //using SHA256 sha256Hash = SHA256.Create();
+        //string HashPassword = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(user.Password))).Replace("-", String.Empty);
+        //user = UserService.GetUserConnected(HashPassword);
+        user = UserService.GetUserConnected(user.Password);
+        if (user != null)
+        {
+            await storage.SetAsync("name", user.Pseudo);
+            await storage.SetAsync("role", user.Role);
+            int role = int.Parse(user.Role);
+            if (role == 1)
+            {
+                NavigationManager.NavigateTo("Categories/");
+            }
+            else if (role > 1)
+            {
+                NavigationManager.NavigateTo("UserProduits/Demande/" + user.Role);
+            }
+            else
+            {
+                NavigationManager.NavigateTo("ClientProduits/Vente/1");
+            }
+        }
+    }
+    private async void createUser()
+    {
+        //using SHA256 sha256Hash = SHA256.Create();
+        //user.Password = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(user.Password))).Replace("-", String.Empty);
+        await UserService.CreateUserAsync(user);
+    }
+}

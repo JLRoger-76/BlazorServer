@@ -1,0 +1,133 @@
+﻿@using Blazor1.Data;
+
+<!-- Button trigger modal -->
+<button id="cartButton" type="button" class="button button-success" @onclick="@ModalShow">Panier<span class="oi oi-cart" aria-hidden="true"></span>:@total €</button>
+
+@if (showModal)
+{
+    <div class="modal fade show" style="display:block; background-color: rgba(10,10,10,.8);" aria-modal="true" role="dialog" @onclick="@ModalCancel">
+        <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <!-- Modal Header -->
+                <div class="modal-header">
+                    <h4 class="modal-title">Mon Panier</h4>
+                    <button type="button" class="close" @onclick="@ModalCancel">&times;</button>
+                </div>
+
+                <!-- Modal body -->
+                <div class="modal-body">
+                    @if (stockProducts != null)
+                    {
+                        <table id="listCart">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Stock</th>
+                                    <th>Quantite</th>
+                                    <th>Prix Unit</th>
+                                    <th>Prix</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyListCart">
+                                @foreach (StockProduct stockProduct in stockProducts)
+                                {
+                                    <tr>
+                                        <td>@stockProduct.Product.Name</td>
+                                        <td>@stockProduct.StockQuantity</td>
+                                        <td><input style="width:5rem !important;" type="number" @onchange="e => OnQuantityChange(stockProduct.ProductId, e)" value=@stockProduct.StockEntry min="1"></td>
+                                        <td align="right" class="punit">@stockProduct.Product.Price €</td>
+                                        <td align="right" class="price">@(stockProduct.Product.Price * stockProduct.StockEntry) €</td>
+                                        <td><button type="button" class="button button-danger" @onclick="@(() => OnDelete(stockProduct.ProductId))"><span class="oi oi-trash" aria-hidden="true"></span></button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td>Total</td>
+                                    <td align="right" id="total">@total €</td>
+                                    <td>
+                                        <button type="button" class="button button-success" @onclick="@(() => OnSave())">Enregistrer</button>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [CascadingParameter]
+    protected StockProduct SelectedProduct { get; set; }
+    [CascadingParameter]
+    protected string Transact { get; set; }
+    [Inject] SaleService SaleService { get; set; }
+    [Inject] SaleProductService SaleProductService { get; set; }
+
+    //popup modal Cart
+    protected decimal total = 0;
+    protected bool showModal = false;
+    protected void ModalShow() => showModal = true;
+    protected void ModalCancel() => showModal = false;
+    protected void ModalOk() => showModal = false;
+
+    protected List<StockProduct> stockProducts = new();
+
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedProduct != null)
+        {
+            if (!stockProducts.Exists(s => s.ProductId == SelectedProduct.ProductId))
+            {
+                SelectedProduct.StockEntry = 1;
+                stockProducts.Add(SelectedProduct);
+                SetTotal();
+            }
+        }
+    }
+    protected void OnQuantityChange(int id, ChangeEventArgs e)
+    {
+        stockProducts.Find(e => e.ProductId == id).StockEntry = int.Parse(e.Value.ToString());
+        SetTotal();
+    }
+
+    protected void OnDelete(int id)
+    {
+        var itemToDelete = stockProducts.Single(s => s.ProductId == id);
+        stockProducts.Remove(itemToDelete);
+        SetTotal();
+    }
+
+    protected void SetTotal()
+    {
+        total = 0;
+        foreach (StockProduct stockProduct in stockProducts)
+        {
+            total += (decimal)stockProduct.Product.Price * stockProduct.StockEntry;
+        }
+    }
+    protected async void OnSave()
+    {
+        Sale sale = new Sale();
+        sale.SalePrice = total;
+        sale.SaleDate = DateTime.Now;
+        var response = await SaleService.InsertSaleAsync(sale);
+        int saleId = int.Parse(response.ToString());
+        foreach (StockProduct stockProduct in stockProducts)
+        {
+            SaleProduct saleProduct = new();
+            saleProduct.SaleId = saleId;
+            saleProduct.ProductId = stockProduct.ProductId;
+            saleProduct.UnitPrice = stockProduct.Product.Price;
+            saleProduct.Quantity = stockProduct.StockEntry;
+            await SaleProductService.InsertSaleProductAsync(saleProduct);
+        }
+    }
+}
+

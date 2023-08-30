@@ -1,0 +1,171 @@
+﻿@using Blazor1.Data;
+@inject NavigationManager NavigationManager
+@using System.Text.Json;
+
+<h3>Liste des Produits</h3>
+
+@if (stockProducts == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    @if (startPage > displayedPages)
+    {
+        <button type="button" @onclick="@(OnPrevPage)" class="button button-info">Prev</button>
+    }
+    @for (int i = startPage; i <= Math.Min(displayedPages + startPage - 1, (productsCount + Parameters.ProductsByPage - 1) / Parameters.ProductsByPage); i++)
+    {
+        var pageNumber = i;
+        <button type="button" @onclick="@(() => OnPage(pageNumber))" class="button button-info">@i</button>
+    }
+    @if ((productsCount + Parameters.ProductsByPage - 1) / Parameters.ProductsByPage >= startPage + displayedPages)
+    {
+        <button type="button" @onclick="@(OnNextPage)" class="button button-info">Next</button>
+    }
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Nom</th>
+
+                    @if (Transact == "Fournisseur")//ajout produit
+                    {
+
+                    }
+                    else//Distribution
+                    {
+                        <th scope="col">Stock</th>
+                        <th scope="col">Demande</th>
+                        <th scope="col">Distribution
+                            <button type="button" class="button button-success" @onclick="@(() => OnSave())">
+                                <span class="oi oi-loop-circular" aria-hidden="true"></span>
+                            </button>
+                        </th>
+
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var stockProduct in displayedStockProducts)
+                {
+                    <tr>
+                        <td scope="row" data-label="Nom">@stockProduct.Product.Name</td>
+                        @if (Transact == "Fournisseur")
+                        {
+                            <td>
+                                <button type="button" class="button button-success" @onclick="@(() => OnSupplierProducts(stockProduct))"> <span class="oi oi-plus" aria-hidden="true"></span></button>
+                            </td>
+
+                        }
+                        else// Distribution
+                        {
+                            <td data-label="Stock">@stockProduct.StockQuantity</td>
+                            <td data-label="Stock">@stockProduct.StockQuery</td>
+                            <td data-label="Distribution">
+                                <input style="width:5rem !important;" type="number"
+                                       @onchange="e => OnQuantityChange(stockProduct.ProductId, e)"
+                                       value=@stockProduct.StockEntry min="0">
+                            </td>
+                            <td></td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+}
+@code {
+    [CascadingParameter]
+    public Parameter Parameters { get; set; }
+    [CascadingParameter]
+    public string Transact { get; set; }
+    [Inject] StockProductService StockProductService { get; set; }
+    [Inject] SupplierProductService SupplierProductService { get; set; }
+
+    protected List<StockProduct> stockProducts = new();
+    protected StockProduct SelectedProduct;
+    protected StockProduct parent = new();
+    protected List<StockProduct> displayedStockProducts = new();
+    protected StockProduct parentStockProduct = new();
+
+    //pagination
+    protected int startPage = 1;      //1ere page du paginateur
+    protected int displayedPages = 10;//total pages du paginateur
+
+    protected int productsCount = 0;
+    protected int quantity;
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        string parameters = JsonSerializer.Serialize(Parameters);
+        stockProducts = await StockProductService.GetStockProductPAsync(parameters);
+
+        if (Transact == "Distribution")
+        {
+            stockProducts = stockProducts.Where(s => s.StockQuery > 0).ToList();
+        }
+        if (Parameters.Sort == 1)
+        {
+            stockProducts = stockProducts.OrderBy(s => s.Product.Name).ToList();
+        }
+        else
+        {
+            stockProducts = stockProducts.OrderByDescending(s => s.Product.Name).ToList();
+        }
+        productsCount = stockProducts.Count();
+        OnPage(Parameters.CurrentPage);
+    }
+
+    protected void OnPage(int i)
+    {
+        Parameters.CurrentPage = i;
+        displayedStockProducts = stockProducts
+            .Skip((Parameters.CurrentPage - 1) * Parameters.ProductsByPage)
+            .Take(Parameters.ProductsByPage).ToList();
+    }
+    protected void OnPrevPage()
+    {
+        startPage -= displayedPages;
+    }
+    protected void OnNextPage()
+    {
+        startPage += displayedPages;
+    }
+    protected void DetailProduct(int id)
+    {
+    }
+
+    protected void OnQuantityChange(int pid, ChangeEventArgs e)
+    {
+        stockProducts.Find(e => e.ProductId == pid).StockEntry = int.Parse(e.Value.ToString());
+
+    }
+    protected async Task OnSave()
+    {
+        foreach (StockProduct stockProduct in stockProducts)
+        {
+            stockProduct.StockQuantity += stockProduct.StockEntry;
+            stockProduct.StockQuery = Math.Max(stockProduct.StockQuery - stockProduct.StockEntry, 0);
+            await StockProductService.UpdateStockProductAsync(stockProduct);
+
+            // diminu le stock du parent
+            parentStockProduct = await StockProductService.GetStockProduct2Async("1&" + stockProduct.ProductId);
+            parentStockProduct.StockQuantity -= stockProduct.StockEntry;
+            await StockProductService.UpdateStockProductAsync(parentStockProduct);
+        }
+    }
+
+    protected async Task OnSupplierProducts(StockProduct product)
+    {
+        SupplierProduct supplierProduct = new();
+        supplierProduct.SupplierId = Parameters.SupplierId;
+        supplierProduct.ProductId = product.ProductId;
+        supplierProduct.Price = 0;
+        await SupplierProductService.InsertSupplierProductAsync(supplierProduct);
+        NavigationManager.NavigateTo("AdminProduits/Achat/" + Parameters.SupplierId);
+    }
+}
+

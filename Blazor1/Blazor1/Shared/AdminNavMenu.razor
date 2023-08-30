@@ -1,0 +1,39 @@
+﻿@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+
+<div class="topnav @responsive" id="myTopnav">
+    <a href="/" class="active">Blazor Store</a>
+    <a href="Suppliers">Fournisseurs</a>
+    <a href="Stocks">Stocks</a>
+    <a href="Categories">Categories</a>
+    <a href="Products">Products</a>
+    <a href="AdminProduits/Distribution/1">Distribution</a>
+    <a href="AdminProduits/Achat/1">Achat</a>
+    <a href="Reception">Reception</a>
+    <a style="float:right" href="Connection"><span class="oi oi-person" aria-hidden="true"></span> Bienvenu @Pseudo</a>
+    <a href="" class="icon" @onclick="@OnClick"><i class="oi oi-menu"></i></a>
+</div>
+
+
+
+@code {
+    [Inject] ProtectedSessionStorage Storage { get; set; }
+
+    protected string Pseudo = "";
+    protected string responsive = "";
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Storage.GetAsync<string>("name");
+        Pseudo = result.Value;
+
+    }
+
+
+
+    void OnClick()
+    {
+        if (responsive == "")
+        { responsive = "responsive"; }
+        else
+        { responsive = ""; }
+    }
+}

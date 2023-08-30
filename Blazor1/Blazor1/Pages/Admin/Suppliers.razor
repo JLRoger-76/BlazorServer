@@ -1,0 +1,83 @@
+﻿@page "/Suppliers"
+@layout AdminLayout
+@using Blazor1.Data;
+@using Blazor1.Services;
+
+<h3>Fournisseurs</h3>
+@if (suppliers == null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Nom</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td scope="row" data-label="Id"></td>
+                <td data-label="Nom">
+                    <input id="Nom" @bind="sup.Name" />
+                </td>
+
+                <td>
+                    @if (@edition == false)
+                    {
+                        <button type="button" class="button button-success" @onclick="@(() => Insert(sup))"> <span class="oi oi-plus" aria-hidden="true"></span></button>
+                    }
+                    <button type="button" class="button button-danger" @onclick="@OnCancel"><span class="oi oi-action-undo" aria-hidden="true"></span></button>
+                </td>
+            </tr>
+
+            @foreach (Supplier supplier in suppliers)
+            {
+                <tr>
+                    <td scope="row" data-label="Id">@supplier.SupplierId</td>
+                    <td data-label="Nom">@supplier.Name</td>
+                    <td>
+                        <button type="button" class="button button-success" @onclick="@(() => OnEdit(supplier))"><span class="oi oi-pencil" aria-hidden="true"></span></button>
+                        <button type="button" class="button button-danger" @onclick="@(() => Delete(supplier))"><span class="oi oi-trash" aria-hidden="true"></span></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Inject] SupplierService SupplierService { get; set; }
+    protected List<Supplier> suppliers = new();
+    private bool edition = false;
+    private Supplier sup = new Supplier();
+
+    protected override async Task OnInitializedAsync()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync();
+    }
+    void OnEdit(Supplier supplier)
+    {
+        edition = true;
+        sup = supplier;
+    }
+    void OnCancel()
+    {
+        edition = false;
+        sup = new Supplier();
+    }
+    async Task Insert(Supplier supplier)
+    {
+        await SupplierService.InsertSupplierAsync(supplier);
+        await OnInitializedAsync();
+    }
+
+    async Task Delete(Supplier supplier)
+    {
+        await SupplierService.DeleteSupplierAsync(supplier);
+        await OnInitializedAsync();
+    }
+}
